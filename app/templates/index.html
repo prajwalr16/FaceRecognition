@@ -9,6 +9,54 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
 </head>
+<style>
+    /* Modal Dialog */
+    #resultModal .modal-dialog {
+        max-width: 90%; /* Ensure the modal doesn't overflow on small screens */
+        width: 100%;
+        margin: 30px auto; /* Center modal */
+    }
+
+    /* Confidence Meter Section */
+    #confidenceSection {
+        margin-top: 15px;
+    }
+
+    .confidence-bar {
+        width: 100%; /* Full width of the modal */
+        height: 15px; /* Slightly smaller for a cleaner look */
+        border-radius: 5px;
+        background-color: #e9ecef;
+    }
+
+    .confidence-level {
+        height: 100%;
+        border-radius: 5px;
+        background-color: #0d6efd; /* Default blue color */
+        transition: width 0.3s ease;
+    }
+
+    #confidenceText {
+        text-align: right;
+        font-size: 0.9rem;
+        color: #6c757d; /* Muted text color */
+    }
+
+    /* Ensure the modal doesn't overflow horizontally */
+    .modal-body {
+        overflow-x: hidden;
+    }
+
+    /* Make modal content responsive on smaller screens */
+    @media (max-width: 576px) {
+        .modal-dialog {
+            width: 95%;
+        }
+        .confidence-bar {
+            height: 12px;
+        }
+    }
+</style>
 <body>
     <div class="container mt-4">
         <h1 class="text-center mb-4">Face Recognition System</h1>
@@ -150,8 +198,8 @@
                                         <label class="form-check-label" for="augmentData">
                                             Enable Data Augmentation
                                             <i class="fas fa-info-circle text-info ms-1" 
-                                               data-bs-toggle="tooltip" 
-                                               title="Generates additional training data through image transformations"></i>
+                                            data-bs-toggle="tooltip" 
+                                            title="Generates additional training data through image transformations"></i>
                                         </label>
                                     </div>
                                     <div class="form-check mb-3">
@@ -159,28 +207,27 @@
                                         <label class="form-check-label" for="useTransferLearning">
                                             Use Transfer Learning
                                             <i class="fas fa-info-circle text-info ms-1" 
-                                               data-bs-toggle="tooltip" 
-                                               title="Uses pre-trained model for better accuracy"></i>
+                                            data-bs-toggle="tooltip" 
+                                            title="Uses pre-trained model for better accuracy"></i>
                                         </label>
                                     </div>
                                     <div class="mb-3">
                                         <label class="form-label">Training Epochs</label>
                                         <div class="d-flex align-items-center">
                                             <input type="range" class="form-range me-2" id="epochsRange" 
-                                                   min="10" max="100" step="10" value="20">
+                                                min="10" max="100" step="10" value="20">
                                             <span id="epochsValue" class="badge bg-primary">20</span>
                                         </div>
                                     </div>
                                 </div>
-                                
                                 <div class="training-controls">
-                                    <button id="trainButton" class="btn btn-primary">Train Model</button>
+                                    <button id="trainButton" class="btn btn-primary">Start Training</button>
+                                    <button id="cancelButton" class="btn btn-danger" style="display: none;">Cancel</button>
                                     <div class="progress mt-2" style="display: none;">
                                         <div id="trainingProgress" class="progress-bar" role="progressbar" style="width: 0%"></div>
                                     </div>
                                     <div id="trainingStatus" class="mt-2"></div>
                                 </div>
-
                                 <div class="training-history mt-4" style="display: none;">
                                     <h6 class="mb-3">Training History</h6>
                                     <div class="history-charts">
@@ -207,6 +254,34 @@
             {% endfor %}
         {% endif %}
     {% endwith %}
+
+    <!-- Recognition Result Modal -->
+    <div class="modal fade" id="resultModal" tabindex="-1" aria-labelledby="resultModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="resultModalLabel">Recognition Result</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <img src="" id="modalImage" alt="Uploaded Image" class="result-image img-fluid">
+                    <div id="modalResultMessage" class="alert mt-3"></div>
+                    <p id="recognizedPerson" class="text-center"></p>
+                    <!-- Confidence Meter Section (inside the modal) -->
+                    <div id="confidenceSection" style="display: none;">
+                        <p class="mb-2">Confidence Level:</p>
+                        <div class="confidence-bar">
+                            <div id="confidenceLevel" class="confidence-level" style="height: 100%; width: 0%; transition: width 0.5s;"></div>
+                        </div>
+                        <p id="confidenceText" class="text-end text-muted"></p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- JavaScript -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>

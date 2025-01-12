@@ -13,6 +13,7 @@ os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 # Disable TensorFlow logging
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # 0=all, 1=no INFO, 2=no INFO/WARN, 3=no INFO/WARN/ERROR
 tf.get_logger().setLevel(logging.ERROR)
+tf.config.set_visible_devices([], 'GPU')
 
 app = Flask(__name__)
 app.config.from_object(Config)

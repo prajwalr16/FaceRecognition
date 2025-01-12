@@ -101,6 +101,9 @@ function createImageElement(image, personName) {
 
 // Event handlers
 $(document).ready(function() {
+    // Initialize TrainingVisualizer instance
+    const visualizer = new TrainingVisualizer();
+
     // Initialize
     loadPersons();
 
@@ -167,9 +170,9 @@ $(document).ready(function() {
         }
     });
 
-    $('#trainButton').click(function() {
-        startTraining();
-    });
+    // $('#trainButton').click(function() {
+    //     visualizer.startTraining();  // Use visualizer instancecognise 
+    // });
 
     $('#recognizeForm').on('submit', function(e) {
         e.preventDefault();
@@ -250,7 +253,13 @@ function deletePerson(personId, callback) {
 // Drag and Drop functionality
 function initializeDragAndDrop() {
     const dropZones = document.querySelectorAll('.upload-area');
-    
+
+    // Ensure there are elements with the class 'upload-area'
+    if (dropZones.length === 0) {
+        console.error('Drop zones not found');
+        return;
+    }
+
     dropZones.forEach(zone => {
         zone.addEventListener('dragover', (e) => {
             e.preventDefault();
@@ -438,6 +447,28 @@ async function pollTrainingProgress() {
     }, 1000);
 }
 
+// Load model statistics when the page is loaded or refreshed
+async function loadModelStats() {
+    try {
+        const response = await fetch('/model-stats');
+        const stats = await response.json();
+
+        if (stats) {
+            const accuracyElem = document.getElementById('model-accuracy');
+            const totalImagesElem = document.getElementById('model-total-images');
+            const totalPersonsElem = document.getElementById('model-total-persons');
+            const lastTrainedElem = document.getElementById('model-last-trained');
+
+            if (accuracyElem) accuracyElem.textContent = `Accuracy: ${stats.accuracy || 0}`;
+            if (totalImagesElem) totalImagesElem.textContent = `Total Images: ${stats.total_images || 0}`;
+            if (totalPersonsElem) totalPersonsElem.textContent = `Total Persons: ${stats.total_persons || 0}`;
+            if (lastTrainedElem) lastTrainedElem.textContent = `Last Trained: ${stats.last_trained || 'Never'}`;
+        }
+    } catch (error) {
+        console.error('Error loading model stats:', error);
+    }
+}
+
 // Utility functions
 function createFileList(files) {
     const dt = new DataTransfer();
@@ -490,6 +521,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeFormSubmissions();
     initializeDragAndDrop();
     loadPersons();  // For database tab
+    loadModelStats();
 });
 
 function initializeImageUploads() {
@@ -680,27 +712,52 @@ async function handleAddPersonSubmission(form) {
 }
 
 function showRecognitionResult(result) {
-    const modalBody = document.getElementById('recognitionResult');
-    if (modalBody) {
-        modalBody.innerHTML = `
-            <div class="text-center mb-3">
-                <img src="${result.image_url}" class="img-fluid rounded" alt="Recognized face">
-            </div>
-            <h6>Recognized Person:</h6>
-            <p class="h4 text-primary mb-3">${result.name}</p>
-            <h6>Confidence:</h6>
-            <div class="progress mb-3">
-                <div class="progress-bar" role="progressbar"
-                     style="width: ${result.confidence}%" aria-valuenow="${result.confidence}"
-                     aria-valuemin="0" aria-valuemax="100">
-                    ${result.confidence.toFixed(1)}%
-                </div>
-            </div>`;
-        const modal = new bootstrap.Modal(document.getElementById('recognitionModal'));
-        modal.show();
-    } else {
-        console.error("Modal body element not found.");
+    if (!result || !result.image_url || !result.name) {
+        console.error('Invalid recognition result:', result);
+        return;
     }
+
+    // Set the modal content dynamically
+    const modal = new bootstrap.Modal(document.getElementById('resultModal'));
+
+    // Set the image source
+    document.getElementById('modalImage').src = result.image_url;
+
+    // Update the result message
+    const resultMessage = document.getElementById('modalResultMessage');
+    if (result.name === "No face detected in the image") {
+        resultMessage.classList.add('alert-danger');
+        resultMessage.textContent = result.name;
+    } else {
+        resultMessage.classList.add('alert-success');
+        resultMessage.textContent = `Face recognized: ${result.name}`;
+        document.getElementById('recognizedPerson').textContent = `Person: ${result.name}`;
+    }
+
+    // Update the confidence level
+    const confidenceLevel = document.getElementById('confidenceLevel');
+    const confidenceText = document.getElementById('confidenceText');
+    const confidenceValue = result.confidence;
+
+    // Set the width of the confidence bar
+    confidenceLevel.style.width = `${confidenceValue}%`;
+
+    // Update the confidence text
+    confidenceText.textContent = `${confidenceValue.toFixed(2)}% Confidence`;
+
+    // Color change based on confidence level
+    if (confidenceValue >= 80) {
+        confidenceLevel.style.backgroundColor = '#28a745';  // Green for high confidence
+    } else if (confidenceValue >= 50) {
+        confidenceLevel.style.backgroundColor = '#ffc107';  // Yellow for medium confidence
+    } else {
+        confidenceLevel.style.backgroundColor = '#dc3545';  // Red for low confidence
+    }
+
+    document.getElementById('confidenceSection').style.display = 'block';
+
+    // Show the modal
+    modal.show();
 }
 
 function updateSubmitButton(previewContainer, submitButton) {

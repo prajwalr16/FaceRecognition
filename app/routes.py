@@ -81,15 +81,19 @@ def add_person():
         new_person = Person(name=name)
         db.session.add(new_person)
         db.session.flush()
+
+        # Ensure the directory exists
+        upload_folder = os.path.join(app.config['UPLOAD_FOLDER'], 'faceimages')
+        os.makedirs(upload_folder, exist_ok=True)
         
         # Process each uploaded file
         for file in files:
             if file and allowed_file(file.filename):
                 filename = secure_filename(file.filename)
-                file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                file_path = os.path.join(upload_folder, filename)
                 file.save(file_path)
                 
-                new_image = PersonImage(image_path=filename, person_id=new_person.id)
+                new_image = PersonImage(image_path=f'faceimages/{filename}', person_id=new_person.id)
                 db.session.add(new_image)
         
         db.session.commit()
@@ -122,10 +126,15 @@ def add_person_image(person_id):
     file = request.files['file']
     if file and allowed_file(file.filename):
         filename = secure_filename(file.filename)
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+
+        # Ensure the directory exists
+        upload_folder = os.path.join(app.config['UPLOAD_FOLDER'], 'faceimages')
+        os.makedirs(upload_folder, exist_ok=True)
+
+        file_path = os.path.join(upload_folder, filename)
         file.save(file_path)
         
-        new_image = PersonImage(image_path=filename, person_id=person.id)
+        new_image = PersonImage(image_path=f'faceimages/{filename}', person_id=person.id)
         db.session.add(new_image)
         db.session.commit()
         
@@ -140,7 +149,7 @@ def delete_person(person_id):
         
         # Delete associated image files
         for image in person.images:
-            file_path = os.path.join(app.config['UPLOAD_FOLDER'], image.image_path)
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], 'faceimages', image.image_path)
             if os.path.exists(file_path):
                 os.remove(file_path)
         
@@ -237,17 +246,21 @@ def recognize():
 @app.route('/retrain', methods=['POST'])
 def retrain():
     try:
-        if model_trainer.training_status['is_training']:
-            return jsonify({'error': 'Training already in progress'}), 400
+        # Check if training_status is properly initialized
+        if not hasattr(model_trainer, 'training_status') or not isinstance(model_trainer.training_status, dict):
+            return jsonify({'error': 'Training status is unavailable'}), 500
+        # Prevent starting multiple training sessions simultaneously
+        if model_trainer.training_status.get('is_training', False):
+            return jsonify({'error': 'Training is already in progress'}), 400
 
         print("Starting model training...")
-        
-        # Start training in background thread with just epochs parameter
+
+        # Start training in a background thread
         thread = Thread(target=lambda: model_trainer.train_model(epochs=20))
         thread.daemon = True
         thread.start()
 
-        return jsonify({'success': True, 'status': 'started'})
+        return jsonify({'success': True, 'status': 'started'}), 200
 
     except Exception as e:
         print(f"Error starting training: {str(e)}")
@@ -255,15 +268,20 @@ def retrain():
 
 @app.route('/training-progress')
 def get_training_progress():
-    return jsonify({
-        'is_training': model_trainer.training_status['is_training'],
-        'progress': model_trainer.training_status['progress'],
-        'message': model_trainer.training_status['message'],
-        'current_epoch': model_trainer.training_status['current_epoch'],
-        'total_epochs': model_trainer.training_status['total_epochs'],
-        'current_accuracy': model_trainer.training_status['current_accuracy'],
-        'best_accuracy': model_trainer.training_status['best_accuracy']
-    })
+    try:
+        training_status = model_trainer.training_status
+        return jsonify({
+            'is_training': training_status.get('is_training', False),
+            'progress': training_status.get('progress', 0),
+            'message': training_status.get('message', 'No message available'),
+            'current_epoch': training_status.get('current_epoch', 0),
+            'total_epochs': training_status.get('total_epochs', 0),
+            'current_accuracy': training_status.get('current_accuracy', 0.0),
+            'best_accuracy': training_status.get('best_accuracy', 0.0),
+            'timestamp': datetime.utcnow().isoformat()
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/model-stats')
 def get_model_stats():
@@ -290,9 +308,7 @@ def get_model_stats():
         return jsonify(stats)
     except Exception as e:
         print(f"Error getting model stats: {str(e)}")
-        return jsonify({
-            'error': str(e)
-        }), 500
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/static/<path:filename>')
 def static_files(filename):

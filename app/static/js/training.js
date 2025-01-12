@@ -77,6 +77,38 @@ document.getElementById('epochsRange').addEventListener('input', function(e) {
     document.getElementById('epochsValue').textContent = e.target.value;
 });
 
+// Load training history and update charts
+async function loadTrainingHistory() {
+    try {
+        const response = await fetch('/model-stats');
+        const stats = await response.json();
+
+        if (stats && accuracyChart && lossChart) {
+            // Assuming historical data for accuracy and loss is stored in training_history.json
+            const historyPath = 'uploads/training_history.json'; // Update as needed
+            const historyResponse = await fetch(historyPath);
+            const trainingHistory = await historyResponse.json();
+
+            // Populate charts with historical data
+            trainingHistory.epochs.forEach((epoch, index) => {
+                accuracyChart.data.labels.push(epoch);
+                accuracyChart.data.datasets[0].data.push(trainingHistory.training_accuracy[index]);
+                accuracyChart.data.datasets[1].data.push(trainingHistory.validation_accuracy[index]);
+
+                lossChart.data.labels.push(epoch);
+                lossChart.data.datasets[0].data.push(trainingHistory.training_loss[index]);
+                lossChart.data.datasets[1].data.push(trainingHistory.validation_loss[index]);
+            });
+
+            // Update the charts
+            accuracyChart.update();
+            lossChart.update();
+        }
+    } catch (error) {
+        console.error('Error loading training history:', error);
+    }
+}
+
 // Enhanced training progress visualization
 function showTrainingProgress() {
     const overlay = document.createElement('div');
@@ -111,6 +143,7 @@ function showTrainingProgress() {
 // Initialize everything
 document.addEventListener('DOMContentLoaded', function() {
     initializeCharts();
+    loadTrainingHistory();
     
     // Initialize tooltips
     const tooltips = document.querySelectorAll('[data-bs-toggle="tooltip"]');

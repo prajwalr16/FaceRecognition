@@ -18,30 +18,40 @@ class TrainingVisualizer {
 
     async startTraining() {
         try {
+            if (this.trainButton.disabled) {
+                console.log("Training is already in progress.");
+                return;
+            }
+    
             this.trainButton.disabled = true;
             this.progressBar.style.display = 'block';
             this.progressBarInner.style.width = '0%';
             this.statusMessage.textContent = 'Starting training...';
-            
+    
             const response = await fetch('/retrain', {
-                method: 'POST'
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
             });
-            
+    
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                const errorData = await response.json();
+                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
             }
-            
+    
             const result = await response.json();
             if (result.success) {
-                this.startProgressCheck();
+                this.startProgressCheck(); // Begin polling for progress updates
             } else {
                 throw new Error(result.error || 'Training failed to start');
             }
         } catch (error) {
             console.error('Error starting training:', error);
             this.statusMessage.textContent = `Error: ${error.message}`;
-            this.trainButton.disabled = false;
-            this.progressBar.style.display = 'none';
+        } finally {
+            this.trainButton.disabled = false; // Enable button if necessary
+            this.progressBar.style.display = 'none'; // Hide progress bar on failure
         }
     }
 
